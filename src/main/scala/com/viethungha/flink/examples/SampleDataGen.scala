@@ -1,11 +1,11 @@
 package com.viethungha.flink.examples
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ser.std.StringSerializer
 import com.viethungha.flink.examples.models.PageviewEvent
 import io.confluent.kafka.schemaregistry.json.{JsonSchema, JsonSchemaUtils}
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord, RecordMetadata}
+import org.apache.kafka.common.serialization.StringSerializer
 
 import java.util.Properties
 import scala.io.Source
@@ -13,7 +13,7 @@ import scala.util.Random
 
 object SampleDataGen {
 
-  def createKafkaProducer(
+  private def createKafkaProducer(
     bootstrapServers: String,
     schemaRegistryUrl: String
   ): KafkaProducer[String, JsonNode] = {
@@ -64,7 +64,7 @@ object SampleDataGen {
       .getLines()
       .drop(1)
       .map { line =>
-        val cols = line.split(",").map(_.trim)
+        val cols = line.split(",").map(_.trim.stripSuffix("\"").stripPrefix("\""))
         cols(0) // Extracts the first column (postcode)
       }
       .toList
@@ -123,9 +123,20 @@ object SampleDataGen {
     producer.flush()
   }
 
-  def main(args: Array[String]): Unit =
-    (1 to 10).foreach { _ =>
-      println(generateRandomPageviewEvent(readPostcodes()))
-    }
+  def main(args: Array[String]): Unit = {
 
+    val producer = createKafkaProducer(
+      "192.168.106.2:9092",
+      "http://192.168.106.2:8081"
+    )
+
+    val postcodes = readPostcodes()
+    while (true) {
+      val samples = (1 to 1000).map { _ =>
+        mapper.valueToTree[JsonNode](generateRandomPageviewEvent(postcodes))
+      }.toList
+      produceJsonToKafka(producer, PageviewEvent.title, samples, PageviewEvent.jsonSchema)
+      Thread.sleep(5000)
+    }
+  }
 }
