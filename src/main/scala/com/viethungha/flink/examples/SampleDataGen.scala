@@ -9,9 +9,33 @@ import org.apache.kafka.common.serialization.StringSerializer
 
 import java.util.Properties
 import scala.io.Source
+import scala.sys.process._
 import scala.util.Random
 
+class SampleDataGen {
+  import SampleDataGen._
+
+  def main(args: Array[String]): Unit = {
+    println(getAddress)
+    getAddress match {
+      case Some(ip) =>
+        println("Running pipeline with Colima (network address enabled)")
+        runPipeline(ip)
+      case None =>
+        println("Running pipeline with Docker local")
+        runPipeline("127.0.0.1")
+    }
+  }
+}
+
 object SampleDataGen {
+  private val colimaList   = Process("colima ls -j")
+  private val queryAddress = Process("jq -r .address")
+
+  private def getAddress: Option[String] = {
+    val result = (colimaList #| queryAddress).!!.trim
+    if (result != "null" && result != "") Some(result) else None
+  }
 
   private def createKafkaProducer(
     bootstrapServers: String,
@@ -24,9 +48,11 @@ object SampleDataGen {
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
     props.put(
       AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY,
-      "io.confluent.kafka.serializers.subject.RecordNameStrategy"
+      "io.confluent.kafka.serializers.subject.TopicNameStrategy"
     )
-    props.put(AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS, "false")
+    props.put(AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS, "true")
+    // TODO - use this KafkaJsonSchemaSerializer here so that messages have structured schema, which will be useful downstream if we want to land these in an Iceberg table
+    //  e.g. Iceberg Kafka Connector requires messages with Schema to build Struct columns
     props.put(
       ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
       "io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer"
@@ -44,12 +70,12 @@ object SampleDataGen {
   private val domains = List("com", "org", "net", "io", "co.uk")
   private val paths   = List("index.html", "about.html", "contact.html", "products.html", "services.html")
 
-  def randomString(length: Int): String = {
+  private def randomString(length: Int): String = {
     val chars = ('a' to 'z') ++ ('0' to '9')
     (1 to length).map(_ => chars(Random.nextInt(chars.length))).mkString
   }
 
-  def generateRandomUrl(): String = {
+  private def generateRandomUrl(): String = {
     val subdomain = randomString(5)
     val domain    = randomString(7)
     val tld       = domains(Random.nextInt(domains.length))
@@ -57,7 +83,7 @@ object SampleDataGen {
     s"www.$subdomain.$domain.$tld/$path"
   }
 
-  def readPostcodes(): List[String] = {
+  private def readPostcodes(): List[String] = {
     val resourceStream = getClass.getResourceAsStream("/postcodes.csv")
     val bufferedSource = Source.fromInputStream(resourceStream)
     val postcodes = bufferedSource
@@ -72,17 +98,16 @@ object SampleDataGen {
     postcodes
   }
 
-  def generateRandomTimestamp(): Long = {
+  private def generateRandomTimestamp(): Long = {
     val currentTimeMillis = System.currentTimeMillis()
-    val oneHourMillis     = 60 * 60 * 1000 // 1 hour in milliseconds
-    val oneHourAgoMillis  = currentTimeMillis - oneHourMillis
+    val durationMillis     = 5 * 60 * 1000 // 5 mins
+    val durationAgoMillis  = currentTimeMillis - durationMillis
 
-    // Generate a random timestamp between oneHourAgoMillis and currentTimeMillis
-    val randomMillis = oneHourAgoMillis + Random.nextLong(oneHourMillis)
+    val randomMillis = durationAgoMillis + Random.nextLong(durationMillis)
     randomMillis
   }
 
-  def generateRandomPageviewEvent(postcodes: List[String]): PageviewEvent =
+  private def generateRandomPageviewEvent(postcodes: List[String]): PageviewEvent =
     PageviewEvent(
       user_id = math.abs(Random.nextInt()).toString,
       postcode = postcodes(Random.nextInt(postcodes.length)),
@@ -90,7 +115,7 @@ object SampleDataGen {
       timestamp = generateRandomTimestamp()
     )
 
-  def produceJsonToKafka(
+  private def produceJsonToKafka(
     producer: KafkaProducer[String, JsonNode],
     topic: String,
     payloadList: List[JsonNode],
@@ -123,11 +148,10 @@ object SampleDataGen {
     producer.flush()
   }
 
-  def main(args: Array[String]): Unit = {
-
+  private def runPipeline(ip: String): Unit = {
     val producer = createKafkaProducer(
-      "192.168.106.2:9092",
-      "http://192.168.106.2:8081"
+      s"$ip:9092",
+      s"http://$ip:8081"
     )
 
     val postcodes = readPostcodes()
@@ -139,4 +163,5 @@ object SampleDataGen {
       Thread.sleep(5000)
     }
   }
+
 }
