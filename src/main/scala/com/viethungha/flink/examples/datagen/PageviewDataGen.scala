@@ -172,7 +172,7 @@ object PageviewDataGen {
         mapper.valueToTree[JsonNode](generateRandomPageviewEvent(postcodes))
       }.toList
       produceJsonToKafka(producer, PageviewEvent.title, samples, PageviewEvent.jsonSchema)
-      Thread.sleep(2000)
+      Thread.sleep(5000)
     }
   }
 }

@@ -67,7 +67,7 @@ object PageviewAgg {
       ).asJava
     )
     val streamEnv = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf)
-    streamEnv.setParallelism(2)
+    streamEnv.setParallelism(1)
     streamEnv.disableOperatorChaining()
 
     val kafkaSource = KafkaSource
@@ -75,7 +75,6 @@ object PageviewAgg {
       .setBootstrapServers("192.168.106.2:9092") // TODO - get proper address
       .setTopics("PageviewEvent")
       .setGroupId("pageview-agg")
-      //      .setStartingOffsets(OffsetsInitializer.earliest())
       .setStartingOffsets(OffsetsInitializer.latest())
       .setDeserializer(PageviewEvent.kafkaDeserializationSchema)
       .build()
@@ -85,7 +84,7 @@ object PageviewAgg {
         .fromSource(
           kafkaSource,
           WatermarkStrategy
-            .forBoundedOutOfOrderness(Duration.ofMillis(500))
+            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500))
             .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
               override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
                 pageview.timestamp
@@ -96,12 +95,7 @@ object PageviewAgg {
 
     val windowedStream = sourceStream
       .keyBy((value: PageviewEvent) => value.postcode)
-      //      .windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(60)))
-      //      .windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(3)))
-      .window(TumblingProcessingTimeWindows.of(Duration.ofSeconds(60)))
-      //      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
-      //      .aggregate(new PageviewAggregateFunction)
-      //      .process(new PageviewDebugProcessWindowFunction())
+      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
       .process(new PageviewProcessWindowFunction())
 
     windowedStream.print()
