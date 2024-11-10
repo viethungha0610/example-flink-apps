@@ -1,7 +1,7 @@
 package com.viethungha.flink.examples.datagen
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.viethungha.flink.examples.mapper
+import com.viethungha.flink.examples._
 import com.viethungha.flink.examples.models.PageviewEvent
 import io.confluent.kafka.schemaregistry.json.{JsonSchema, JsonSchemaUtils}
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
@@ -12,7 +12,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
 import java.util.Properties
 import scala.io.Source
-import scala.sys.process._
 import scala.util.Random
 
 object PageviewDataGen {
@@ -27,14 +26,6 @@ object PageviewDataGen {
         println("Running pipeline with Docker local")
         runPipeline("127.0.0.1")
     }
-  }
-
-  private val colimaList   = Process("colima ls -j")
-  private val queryAddress = Process("jq -r .address")
-
-  private def getAddress: Option[String] = {
-    val result = (colimaList #| queryAddress).!!.trim
-    if (result != "null" && result != "") Some(result) else None
   }
 
   private def createKafkaProducer(
@@ -168,11 +159,11 @@ object PageviewDataGen {
 
     val postcodes = readPostcodes()
     while (true) {
-      val samples = (1 to Random.nextInt(100)).map { _ =>
+      val samples = (1 to Random.nextInt(50)).map { _ =>
         mapper.valueToTree[JsonNode](generateRandomPageviewEvent(postcodes))
       }.toList
       produceJsonToKafka(producer, PageviewEvent.title, samples, PageviewEvent.jsonSchema)
-      Thread.sleep(5000)
+      Thread.sleep(10000)
     }
   }
 }

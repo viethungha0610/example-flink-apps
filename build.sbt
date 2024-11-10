@@ -14,3 +14,9 @@ lazy val root = (project in file(".")).settings(
 resolvers ++= (
   Resolver.sonatypeOssRepos("releases") ++ Seq("Confluent".at("https://packages.confluent.io/maven/"))
 )
+
+lazy val ProvidedRun = config("provided-run").extend(Compile)
+
+inConfig(ProvidedRun)(Defaults.configSettings)
+
+run in ProvidedRun := (run in Compile).evaluated

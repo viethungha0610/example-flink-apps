@@ -4,6 +4,7 @@ import com.viethungha.flink.examples.models.{AggregatedPageviewEvent, PageviewEv
 import org.apache.flink.api.common.eventtime.{SerializableTimestampAssigner, WatermarkStrategy}
 import org.apache.flink.api.common.functions.AggregateFunction
 import org.apache.flink.configuration.{Configuration, RestOptions}
+import org.apache.flink.connector.kafka.sink.KafkaSink
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator
@@ -14,34 +15,13 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow
 import org.apache.flink.util.Collector
 
 import java.lang
-import java.time.Duration
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, Instant, ZoneId}
 import scala.jdk.CollectionConverters._
 
 object PageviewAgg {
 
-  class PageviewAggregateFunction extends AggregateFunction[PageviewEvent, Long, Long] {
-    override def createAccumulator(): Long = 0L
-
-    override def add(value: PageviewEvent, accumulator: Long): Long = accumulator + 1
-
-    override def getResult(accumulator: Long): Long = accumulator
-
-    override def merge(a: Long, b: Long): Long = a + b
-  }
-
-  class PageviewDebugProcessWindowFunction extends ProcessWindowFunction[PageviewEvent, String, String, TimeWindow] {
-    override def process(
-      key: String,
-      context: ProcessWindowFunction[PageviewEvent, String, String, TimeWindow]#Context,
-      elements: lang.Iterable[PageviewEvent],
-      out: Collector[String]
-    ): Unit =
-      out.collect(
-        s"Window: ${context.window().getStart} - ${context.window().getEnd} -- Key: $key -- Count: ${elements.asScala.count(_ => true)}"
-      )
-  }
-
-  class PageviewProcessWindowFunction
+  private class PageviewProcessWindowFunction
       extends ProcessWindowFunction[PageviewEvent, AggregatedPageviewEvent, String, TimeWindow] {
     override def process(
       key: String,
@@ -54,12 +34,22 @@ object PageviewAgg {
           postcode = key,
           viewCount = elements.asScala.size,
           windowStart = context.window().getStart,
-          windowEnd = context.window().getEnd
+          windowEnd = context.window().getEnd,
+          year_month_day = Instant
+            .ofEpochMilli(context.window().getStart)
+            .atZone(ZoneId.of("UTC"))
+            .format(
+              DateTimeFormatter.ISO_LOCAL_DATE
+            )
         )
       )
   }
 
   def main(args: Array[String]): Unit = {
+
+    val bootstrapServers = "192.168.106.2:9092"
+    val csrUrl           = "http://192.168.106.2:8081"
+
     val conf = Configuration.fromMap(
       Map(
         RestOptions.ENABLE_FLAMEGRAPH.key() -> "true",
@@ -72,7 +62,7 @@ object PageviewAgg {
 
     val kafkaSource = KafkaSource
       .builder[PageviewEvent]()
-      .setBootstrapServers("192.168.106.2:9092") // TODO - get proper address
+      .setBootstrapServers(bootstrapServers) // TODO - get proper address
       .setTopics("PageviewEvent")
       .setGroupId("pageview-agg")
       .setStartingOffsets(OffsetsInitializer.latest())
@@ -84,7 +74,7 @@ object PageviewAgg {
         .fromSource(
           kafkaSource,
           WatermarkStrategy
-            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500))
+            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500)) // important to include the type
             .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
               override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
                 pageview.timestamp
@@ -95,10 +85,19 @@ object PageviewAgg {
 
     val windowedStream = sourceStream
       .keyBy((value: PageviewEvent) => value.postcode)
-      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
+      .window(TumblingEventTimeWindows.of(Duration.ofSeconds(20)))
       .process(new PageviewProcessWindowFunction())
 
-    windowedStream.print()
+    // Sink back to Kafka
+    val kafkaSink = KafkaSink
+      .builder[AggregatedPageviewEvent]()
+      .setBootstrapServers(bootstrapServers)
+      .setRecordSerializer(
+        new AggregatedPageviewEvent.CustomKafkaAvroSerializer("AggregatedPageviewEvent", csrUrl)
+      )
+      .build()
+
+    windowedStream.sinkTo(kafkaSink)
 
     // Execution plan
     println(streamEnv.getExecutionPlan)
