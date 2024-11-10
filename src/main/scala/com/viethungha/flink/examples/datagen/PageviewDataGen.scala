@@ -1,19 +1,21 @@
-package com.viethungha.flink.examples
+package com.viethungha.flink.examples.datagen
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.viethungha.flink.examples.mapper
 import com.viethungha.flink.examples.models.PageviewEvent
 import io.confluent.kafka.schemaregistry.json.{JsonSchema, JsonSchemaUtils}
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.serialization.StringSerializer
 
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneId}
 import java.util.Properties
 import scala.io.Source
 import scala.sys.process._
 import scala.util.Random
 
-class SampleDataGen {
-  import SampleDataGen._
+object PageviewDataGen {
 
   def main(args: Array[String]): Unit = {
     println(getAddress)
@@ -26,9 +28,7 @@ class SampleDataGen {
         runPipeline("127.0.0.1")
     }
   }
-}
 
-object SampleDataGen {
   private val colimaList   = Process("colima ls -j")
   private val queryAddress = Process("jq -r .address")
 
@@ -100,20 +100,32 @@ object SampleDataGen {
 
   private def generateRandomTimestamp(): Long = {
     val currentTimeMillis = System.currentTimeMillis()
-    val durationMillis     = 5 * 60 * 1000 // 5 mins
-    val durationAgoMillis  = currentTimeMillis - durationMillis
+    val durationMillis    = 5 * 60 * 1000 // 5 mins
+    val durationAgoMillis = currentTimeMillis - durationMillis
 
     val randomMillis = durationAgoMillis + Random.nextLong(durationMillis)
     randomMillis
   }
 
-  private def generateRandomPageviewEvent(postcodes: List[String]): PageviewEvent =
+  private def generateRandomPageviewEvent(postcodes: List[String]): PageviewEvent = {
+
+//    val timestamp = generateRandomTimestamp()
+    val timestamp = Instant.now().toEpochMilli
+    val datetime = Instant
+      .ofEpochMilli(timestamp)
+      .atZone(ZoneId.of("UTC"))
+      .format(
+        DateTimeFormatter.ISO_DATE_TIME
+      )
+
     PageviewEvent(
       user_id = math.abs(Random.nextInt()).toString,
       postcode = postcodes(Random.nextInt(postcodes.length)),
       webpage = generateRandomUrl(),
-      timestamp = generateRandomTimestamp()
+      timestamp = timestamp,
+      datetime = datetime
     )
+  }
 
   private def produceJsonToKafka(
     producer: KafkaProducer[String, JsonNode],
@@ -137,7 +149,7 @@ object SampleDataGen {
         (metadata: RecordMetadata, exception: Exception) =>
           if (exception == null)
             println(
-              s"Produced record to topic ${metadata.topic}, partition ${metadata.partition}, offset ${metadata.offset}"
+              s"Produced record to topic ${metadata.topic}, partition ${metadata.partition}, offset ${metadata.offset}, value ${json}"
             )
           else
             println(s"Failed to produce record: ${exception.getMessage}")
@@ -156,12 +168,11 @@ object SampleDataGen {
 
     val postcodes = readPostcodes()
     while (true) {
-      val samples = (1 to 1000).map { _ =>
+      val samples = (1 to Random.nextInt(100)).map { _ =>
         mapper.valueToTree[JsonNode](generateRandomPageviewEvent(postcodes))
       }.toList
       produceJsonToKafka(producer, PageviewEvent.title, samples, PageviewEvent.jsonSchema)
-      Thread.sleep(5000)
+      Thread.sleep(2000)
     }
   }
-
 }
