@@ -2,7 +2,6 @@ package com.viethungha.flink.examples
 
 import com.viethungha.flink.examples.models.{AggregatedPageviewEvent, PageviewEvent}
 import org.apache.flink.api.common.eventtime.{SerializableTimestampAssigner, WatermarkStrategy}
-import org.apache.flink.api.common.functions.AggregateFunction
 import org.apache.flink.configuration.{Configuration, RestOptions}
 import org.apache.flink.connector.kafka.sink.KafkaSink
 import org.apache.flink.connector.kafka.source.KafkaSource

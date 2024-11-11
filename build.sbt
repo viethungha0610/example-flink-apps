@@ -20,3 +20,9 @@ lazy val ProvidedRun = config("provided-run").extend(Compile)
 inConfig(ProvidedRun)(Defaults.configSettings)
 
 run in ProvidedRun := (run in Compile).evaluated
+
+assembly / assemblyMergeStrategy := {
+  case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+  case PathList("META-INF", xs @ _*)       => MergeStrategy.discard
+  case _                                   => MergeStrategy.first
+}

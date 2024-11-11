@@ -18,7 +18,7 @@ case class AggregatedPageviewEvent(
 object AggregatedPageviewEvent {
   val schema: Schema = AvroSchema[AggregatedPageviewEvent]
 
-  def convertToAvro(event: AggregatedPageviewEvent): GenericRecord = {
+  private def convertToAvro(event: AggregatedPageviewEvent): GenericRecord = {
     val record = new GenericData.Record(schema)
     record.put("postcode", event.postcode)
     record.put("viewCount", event.viewCount)
