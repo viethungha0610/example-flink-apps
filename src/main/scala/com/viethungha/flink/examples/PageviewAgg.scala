@@ -50,6 +50,9 @@ object PageviewAgg {
     println(s"Running pipeline locally at $localhost")
     val bootstrapServers = s"$localhost:9092"
     val csrUrl           = s"http://$localhost:8081"
+    val classpath = System.getProperty("java.class.path")
+    println("Classpath:")
+    classpath.split(java.io.File.pathSeparator).foreach(println)
 
     val conf = Configuration.fromMap(
       Map(
