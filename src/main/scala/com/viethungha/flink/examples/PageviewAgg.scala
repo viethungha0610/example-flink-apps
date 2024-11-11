@@ -46,8 +46,10 @@ object PageviewAgg {
 
   def main(args: Array[String]): Unit = {
 
-    val bootstrapServers = "192.168.106.2:9092"
-    val csrUrl           = "http://192.168.106.2:8081"
+    val localhost = getAddress.getOrElse("localhost")
+    println(s"Running pipeline locally at $localhost")
+    val bootstrapServers = s"$localhost:9092"
+    val csrUrl           = s"http://$localhost:8081"
 
     val conf = Configuration.fromMap(
       Map(

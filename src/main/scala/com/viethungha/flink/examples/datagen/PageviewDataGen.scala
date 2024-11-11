@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
 import java.util.Properties
 import scala.io.Source
-import scala.util.{Random, Try}
+import scala.util.Random
 
 object PageviewDataGen {
 
