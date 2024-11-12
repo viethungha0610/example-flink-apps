@@ -13,9 +13,10 @@ object Dependencies {
   }
 
   private val flinkDeps = Seq(
-    "org.apache.flink" % "flink-streaming-java"          % V.flink % Runtime,
-    "org.apache.flink" % "flink-core"                    % V.flink % Runtime,
-    "org.apache.flink" % "flink-table-api-java-bridge"   % V.flink % Runtime,
+    // Some dependencies are provided since in prod, the assembled jar can be deployed on AWS managed flink (formerly Kinesis Data Analytics)
+    "org.apache.flink" % "flink-streaming-java"          % V.flink % "provided",
+    "org.apache.flink" % "flink-core"                    % V.flink % "provided",
+    "org.apache.flink" % "flink-table-api-java-bridge"   % V.flink % "provided",
     "org.apache.flink" % "flink-java"                    % V.flink,
     "org.apache.flink" % "flink-clients"                 % V.flink,
     "org.apache.flink" % "flink-runtime-web"             % V.flink,

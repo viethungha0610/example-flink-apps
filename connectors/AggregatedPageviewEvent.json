@@ -11,7 +11,7 @@
   "format.class": "io.confluent.connect.s3.format.parquet.ParquetFormat",
   "schema.compatibility": "NONE",
   "value.converter": "io.confluent.connect.avro.AvroConverter",
-  "value.converter.schema.registry.url": "http://192.168.106.2:8081",
+  "value.converter.schema.registry.url": "http://schema-registry:8081",
   "aws.access.key.id": "localstack",
   "aws.secret.access.key": "localstack",
   "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
@@ -20,6 +20,6 @@
   "locale": "en-GB",
   "timezone": "UTC",
   "topics.dir": "kafka_data",
-  "flush.size": "1000",
+  "flush.size": "100",
   "rotate.interval.ms": "600000"
 }

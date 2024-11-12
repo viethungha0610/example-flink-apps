@@ -1,5 +1,6 @@
 package com.viethungha.flink.examples
 
+import com.viethungha.flink.examples.functions.PageviewProcessWindowFunction
 import com.viethungha.flink.examples.models.{AggregatedPageviewEvent, PageviewEvent}
 import org.apache.flink.api.common.eventtime.{SerializableTimestampAssigner, WatermarkStrategy}
 import org.apache.flink.configuration.{Configuration, RestOptions}
@@ -8,51 +9,18 @@ import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners._
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow
-import org.apache.flink.util.Collector
 
-import java.lang
-import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, ZoneId}
+import java.time.Duration
 import scala.jdk.CollectionConverters._
 
 object PageviewAgg {
-
-  private class PageviewProcessWindowFunction
-      extends ProcessWindowFunction[PageviewEvent, AggregatedPageviewEvent, String, TimeWindow] {
-    override def process(
-      key: String,
-      context: ProcessWindowFunction[PageviewEvent, AggregatedPageviewEvent, String, TimeWindow]#Context,
-      elements: lang.Iterable[PageviewEvent],
-      out: Collector[AggregatedPageviewEvent]
-    ): Unit =
-      out.collect(
-        AggregatedPageviewEvent(
-          postcode = key,
-          viewCount = elements.asScala.size,
-          windowStart = context.window().getStart,
-          windowEnd = context.window().getEnd,
-          year_month_day = Instant
-            .ofEpochMilli(context.window().getStart)
-            .atZone(ZoneId.of("UTC"))
-            .format(
-              DateTimeFormatter.ISO_LOCAL_DATE
-            )
-        )
-      )
-  }
-
   def main(args: Array[String]): Unit = {
 
-    val localhost = getAddress.getOrElse("localhost")
-    println(s"Running pipeline locally at $localhost")
+    val localhost        = getAddress.getOrElse("localhost")
     val bootstrapServers = s"$localhost:9092"
     val csrUrl           = s"http://$localhost:8081"
-    val classpath = System.getProperty("java.class.path")
-    println("Classpath:")
-    classpath.split(java.io.File.pathSeparator).foreach(println)
+    println(s"Running pageview aggregate pipeline locally at $localhost, Kafka at $bootstrapServers and CSR at $csrUrl")
 
     val conf = Configuration.fromMap(
       Map(
@@ -69,7 +37,7 @@ object PageviewAgg {
       .setBootstrapServers(bootstrapServers) // TODO - get proper address
       .setTopics("PageviewEvent")
       .setGroupId("pageview-agg")
-      .setStartingOffsets(OffsetsInitializer.latest())
+      .setStartingOffsets(OffsetsInitializer.earliest())
       .setDeserializer(PageviewEvent.kafkaDeserializationSchema)
       .build()
 
@@ -78,18 +46,18 @@ object PageviewAgg {
         .fromSource(
           kafkaSource,
           WatermarkStrategy
-            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500)) // important to include the type
+            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMinutes(5))
             .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
               override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
                 pageview.timestamp
             }),
           "Kafka source"
         )
-        .uid("Kafka source")
+        .uid("kafka-pageview-source")
 
     val windowedStream = sourceStream
       .keyBy((value: PageviewEvent) => value.postcode)
-      .window(TumblingEventTimeWindows.of(Duration.ofSeconds(20)))
+      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
       .process(new PageviewProcessWindowFunction())
 
     // Sink back to Kafka
