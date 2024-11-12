@@ -39,8 +39,10 @@ Run the pipeline:
    edit
    IntelliJ's run configuration to `Add dependencies with 'provided' scope to classpath` (screenshot below).
    ![img.png](img.png)
-5. Once the data generation and aggregation pipelines are running, we can create connectors to sink the Kafka data in
-   S3, by running `make create-connectors`
+    - After this, the Flink application UI can be accessed via `localhost:12000`
+![ui.png](ui.png)
+5. Once the data generation and aggregation pipelines are running after a couple of minutes, we can create connectors to sink the Kafka data in
+   S3, by running `make create-connectors`.
     - Note: in the Connectors config, you may notice that the batch size is quite small (100), this is just so that we
       can quickly see the files in localstack S3, in reality we want to increase this to avoid many small files.
 

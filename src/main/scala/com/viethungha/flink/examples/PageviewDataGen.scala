@@ -7,8 +7,7 @@ import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.serialization.StringSerializer
 
-import java.time.format.DateTimeFormatter
-import java.time.{Instant, ZoneId}
+import java.time.Instant
 import java.util.Properties
 import scala.io.Source
 import scala.util.Random
@@ -92,22 +91,13 @@ object PageviewDataGen {
   }
 
   private def generateRandomPageviewEvent(postcodes: List[String]): PageviewEvent = {
-
-//    val timestamp = generateRandomTimestamp()
     val timestamp = Instant.now().toEpochMilli
-    val datetime = Instant
-      .ofEpochMilli(timestamp)
-      .atZone(ZoneId.of("UTC"))
-      .format(
-        DateTimeFormatter.ISO_DATE_TIME
-      )
 
     PageviewEvent(
       user_id = math.abs(Random.nextInt()).toString,
       postcode = postcodes(Random.nextInt(postcodes.length)),
       webpage = generateRandomUrl(),
-      timestamp = timestamp,
-      datetime = datetime
+      timestamp = timestamp
     )
   }
 

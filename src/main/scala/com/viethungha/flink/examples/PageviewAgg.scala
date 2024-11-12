@@ -25,7 +25,7 @@ object PageviewAgg {
     val conf = Configuration.fromMap(
       Map(
         RestOptions.ENABLE_FLAMEGRAPH.key() -> "true",
-        RestOptions.PORT.key()              -> 11000.toString
+        RestOptions.PORT.key()              -> 12000.toString
       ).asJava
     )
     val streamEnv = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf)
@@ -46,7 +46,8 @@ object PageviewAgg {
         .fromSource(
           kafkaSource,
           WatermarkStrategy
-            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMinutes(5))
+          // .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMinutes(2)) // TODO - in prod - set the watermark to wait for longer
+            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500))
             .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
               override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
                 pageview.timestamp

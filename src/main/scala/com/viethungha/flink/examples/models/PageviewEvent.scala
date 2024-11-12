@@ -13,8 +13,7 @@ case class PageviewEvent(
   user_id: String,
   postcode: String,
   webpage: String,
-  timestamp: Long,
-  datetime: String // TODO - remove after debugging
+  timestamp: Long
 )
 
 object PageviewEvent {
@@ -27,10 +26,10 @@ object PageviewEvent {
   val jsonSchema: JsonSchema = new JsonSchema(internalSchemaStr)
 
   /**
-   * potentially use the io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer
-   *  but since we know have the case class definition directly, we can just directly deserialize the messages by
-   *  skipping the first 5 bytes (magic byte + id int)
-   */
+    * potentially use the io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer
+    *  but since we know have the case class definition directly, we can just directly deserialize the messages by
+    *  skipping the first 5 bytes (magic byte + id int)
+    */
   val kafkaDeserializationSchema: KafkaRecordDeserializationSchema[PageviewEvent] =
     new KafkaRecordDeserializationSchema[PageviewEvent] {
       override def deserialize(record: ConsumerRecord[Array[Byte], Array[Byte]], out: Collector[PageviewEvent]): Unit =
