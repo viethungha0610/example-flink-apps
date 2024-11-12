@@ -7,9 +7,6 @@ localdev-down:
 run-data-gen:
 	sbt "runMain com.viethungha.flink.examples.PageviewDataGen"
 
-run-pageview-agg:
-	sbt "runMain com.viethungha.flink.examples.PageviewAgg"
-
 apply-localstack:
 	cd infra && terraform init && terraform apply -auto-approve
 
