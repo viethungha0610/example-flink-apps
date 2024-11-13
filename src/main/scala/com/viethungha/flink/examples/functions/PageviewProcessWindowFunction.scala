@@ -24,7 +24,7 @@ class PageviewProcessWindowFunction
         viewCount = elements.asScala.size,
         windowStart = context.window().getStart,
         windowEnd = context.window().getEnd,
-        year_month_day = Instant
+        window_year_month_day = Instant
           .ofEpochMilli(context.window().getStart)
           .atZone(ZoneId.of("UTC"))
           .format(

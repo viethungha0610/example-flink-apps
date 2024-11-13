@@ -12,7 +12,7 @@ case class AggregatedPageviewEvent(
   viewCount: Long,
   windowStart: Long,
   windowEnd: Long,
-  year_month_day: String
+  window_year_month_day: String
 )
 
 object AggregatedPageviewEvent {
@@ -24,7 +24,7 @@ object AggregatedPageviewEvent {
     record.put("viewCount", event.viewCount)
     record.put("windowStart", event.windowStart)
     record.put("windowEnd", event.windowEnd)
-    record.put("year_month_day", event.year_month_day)
+    record.put("window_year_month_day", event.window_year_month_day)
     record
   }
 
