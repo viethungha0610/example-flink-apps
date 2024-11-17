@@ -7,7 +7,7 @@ import org.apache.flink.configuration.{Configuration, RestOptions}
 import org.apache.flink.connector.kafka.sink.KafkaSink
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator
+import org.apache.flink.streaming.api.datastream.{DataStream, SingleOutputStreamOperator}
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.windowing.assigners._
 
@@ -15,6 +15,19 @@ import java.time.Duration
 import scala.jdk.CollectionConverters._
 
 object PageviewAgg {
+
+  final val pageviewWatermarkStrategy = WatermarkStrategy
+    .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500))
+    .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
+      override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
+        pageview.timestamp
+    })
+  def windowPageviewStream(input: DataStream[PageviewEvent]): DataStream[AggregatedPageviewEvent] =
+    input
+      .keyBy((value: PageviewEvent) => value.postcode)
+      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
+      .process(new PageviewProcessWindowFunction())
+
   def main(args: Array[String]): Unit = {
 
     val localhost        = getAddress.getOrElse("localhost")
@@ -45,21 +58,16 @@ object PageviewAgg {
       streamEnv
         .fromSource(
           kafkaSource,
-          WatermarkStrategy
-          // .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMinutes(2)) // TODO - in prod - set the watermark to wait for longer
-            .forBoundedOutOfOrderness[PageviewEvent](Duration.ofMillis(500))
-            .withTimestampAssigner(new SerializableTimestampAssigner[PageviewEvent] {
-              override def extractTimestamp(pageview: PageviewEvent, recordTimestamp: Long): Long =
-                pageview.timestamp
-            }),
+          pageviewWatermarkStrategy,
           "Kafka source"
         )
         .uid("kafka-pageview-source")
 
-    val windowedStream = sourceStream
-      .keyBy((value: PageviewEvent) => value.postcode)
-      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
-      .process(new PageviewProcessWindowFunction())
+//    val windowedStream = sourceStream
+//      .keyBy((value: PageviewEvent) => value.postcode)
+//      .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
+//      .process(new PageviewProcessWindowFunction())
+    val windowedStream = windowPageviewStream(sourceStream)
 
     // Sink back to Kafka
     val kafkaSink = KafkaSink
