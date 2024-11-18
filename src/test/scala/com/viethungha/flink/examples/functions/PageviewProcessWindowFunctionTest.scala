@@ -30,15 +30,6 @@ class PageviewProcessWindowFunctionTest extends AnyWordSpecLike with Matchers wi
     flinkCluster.after()
   }
 
-  class ListSink extends SinkFunction[AggregatedPageviewEvent] {
-
-    val values: util.List[AggregatedPageviewEvent] =
-      Collections.synchronizedList(new util.ArrayList[AggregatedPageviewEvent]())
-
-    override def invoke(value: AggregatedPageviewEvent, context: SinkFunction.Context): Unit =
-      values.add(value)
-  }
-
   "PageviewProcessWindowFunction" should {
     "aggregate pageview events correctly" in {
 
@@ -51,10 +42,11 @@ class PageviewProcessWindowFunctionTest extends AnyWordSpecLike with Matchers wi
         .fromData[PageviewEvent](
           List(
             PageviewEvent("1", "EC1", "https://example.com", baseTimestamp),
-            PageviewEvent("2", "EC1", "https://example.com", baseTimestamp + (0.2 * minutesInMillis).toLong),
-            PageviewEvent("4", "EC1", "https://example.com", baseTimestamp + (0.5 * minutesInMillis).toLong),
-            PageviewEvent("3", "SW1", "https://example.com", baseTimestamp + (2.05 * minutesInMillis).toLong),
-            PageviewEvent("5", "SW1", "https://example.com", baseTimestamp + (2.5 * minutesInMillis).toLong)
+            PageviewEvent("2", "EC1", "https://example.com", baseTimestamp  + (0.2 * minutesInMillis).toLong),
+            PageviewEvent("4", "EC1", "https://example.com", baseTimestamp  + (0.5 * minutesInMillis).toLong),
+            PageviewEvent("7", "SE18", "https://example.com", baseTimestamp + (1.5 * minutesInMillis).toLong),
+            PageviewEvent("3", "SW1", "https://example.com", baseTimestamp  + (2.05 * minutesInMillis).toLong),
+            PageviewEvent("5", "SW1", "https://example.com", baseTimestamp  + (2.5 * minutesInMillis).toLong)
           ).asJavaCollection
         )
         .assignTimestampsAndWatermarks(
@@ -67,10 +59,11 @@ class PageviewProcessWindowFunctionTest extends AnyWordSpecLike with Matchers wi
 
       val output = windowedStream.executeAndCollect(10)
 
-      output.size() shouldBe 2
+      output.size() shouldBe 3
       output.asScala.toSet shouldBe Set(
-        AggregatedPageviewEvent("EC1", 3L, 0L, 60000L, "1970-01-01"),      // first minute
-        AggregatedPageviewEvent("SW1", 2L, 120000L, 180000L, "1970-01-01") // third minute
+        AggregatedPageviewEvent("EC1", 3L, 0L, 60000L, "1970-01-01"),       // first minute
+        AggregatedPageviewEvent("SE18", 1L, 60000L, 120000L, "1970-01-01"), // second minute
+        AggregatedPageviewEvent("SW1", 2L, 120000L, 180000L, "1970-01-01")  // third minute
       )
     }
   }
