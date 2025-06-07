@@ -10,7 +10,15 @@ object Dependencies {
     val jsonSchema      = "0.7.11"
     val flinkKafka      = "3.2.0-1.19"
     val avro4s          = "4.1.2"
+    val scalaTest       = "3.2.19"
   }
+
+  private val testDeps = Seq(
+    "org.scalatest"     %% "scalatest"        % V.scalaTest         % Test,
+    "org.scalatestplus" %% "mockito-5-12"     % s"${V.scalaTest}.0" % Test,
+    "org.apache.flink"   % "flink-test-utils" % V.flink             % Test,
+    "org.apache.flink"   % "flink-runtime"    % V.flink             % Test
+  )
 
   private val flinkDeps = Seq(
     // Some dependencies are provided since in prod, the assembled jar can be deployed on AWS managed flink (formerly Kinesis Data Analytics)
@@ -40,5 +48,5 @@ object Dependencies {
     "com.sksamuel.avro4s"          %% "avro4s-core"          % V.avro4s
   )
 
-  val deps: Seq[ModuleID] = flinkDeps ++ kafkaDeps ++ jsonDeps
+  val deps: Seq[ModuleID] = flinkDeps ++ kafkaDeps ++ jsonDeps ++ testDeps
 }
